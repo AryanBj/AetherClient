@@ -1,0 +1,24 @@
+{
+    "configurations": [
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:AetherClient}",
+            "name": "Debug AetherClient",
+            "target": "AetherClient",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug AetherClient"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:AetherClient}",
+            "name": "Release AetherClient",
+            "target": "AetherClient",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release AetherClient"
+        }
+    ]
+}
