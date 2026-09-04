@@ -27,8 +27,18 @@ final class AetherManager: @unchecked Sendable, ObservableObject {
         enableNoise: Bool,
         noiseType: String,
         upstream: String,
-        routing: String,
-        localPort: String
+        routeBlock: String,
+        routeDirect: String,
+        localPort: String,
+        httpProxy: String,
+        dns: String,
+        logLevel: String,
+        perfLevel: String,
+        teamName: String,
+        accessEmail: String,
+        enableGateway: Bool,
+        wiwOuter: String,
+        wiwInner: String
     ) {
         guard !isRunning else { return }
         
@@ -60,9 +70,14 @@ final class AetherManager: @unchecked Sendable, ObservableObject {
             args.append(upstream)
         }
         
-        if !routing.isEmpty {
-            args.append("--route")
-            args.append(routing)
+        if !routeBlock.isEmpty {
+            args.append("--route-block")
+            args.append(routeBlock)
+        }
+        
+        if !routeDirect.isEmpty {
+            args.append("--route-direct")
+            args.append(routeDirect)
         }
 
         if !localPort.isEmpty && localPort != "1819" {
@@ -70,17 +85,58 @@ final class AetherManager: @unchecked Sendable, ObservableObject {
              args.append(localPort)
         }
         
+        if !httpProxy.isEmpty {
+            args.append("--http-proxy")
+            args.append(httpProxy)
+        }
+        
+        if !dns.isEmpty {
+            args.append("--dns")
+            args.append(dns)
+        }
+        
+        if logLevel != "info" {
+            args.append("--log-level")
+            args.append(logLevel)
+        }
+        
+        if perfLevel != "auto" {
+            args.append("--perf")
+            args.append(perfLevel)
+        }
+        
+        if !teamName.isEmpty {
+            args.append("--team")
+            args.append(teamName)
+            if !accessEmail.isEmpty {
+                args.append("--access-email")
+                args.append(accessEmail)
+            }
+            if enableGateway {
+                args.append("--gateway")
+            }
+        }
+        
+        if protocolName == "gool" {
+            if !wiwOuter.isEmpty {
+                args.append("--wiw-outer")
+                args.append(wiwOuter)
+            }
+            if !wiwInner.isEmpty {
+                args.append("--wiw-inner")
+                args.append(wiwInner)
+            }
+        }
+        
         logs += "Executing: ./aether \(args.joined(separator: " "))\n\n"
         
         var executablePath = ""
         var workingDirectory = ""
         
-        // مسیر داینامیک: بررسی میکنه که آیا فایل داخل پکیج .app هست یا نه
         if let resourcePath = Bundle.main.path(forResource: "aether", ofType: nil) {
             executablePath = resourcePath
             workingDirectory = Bundle.main.bundlePath + "/Contents/Resources"
         } else {
-            // مسیر موقت برای اجرای مستقیم از ترمینال
             executablePath = "/Users/aryan/Downloads/aether/aether"
             workingDirectory = "/Users/aryan/Downloads/aether"
         }
@@ -148,23 +204,41 @@ struct ContentView: View {
     @State private var enableNoise = false
     @State private var noiseType = "firewall"
     @State private var upstreamProxy = ""
-    @State private var routingRules = ""
+    @State private var routeBlock = ""
+    @State private var routeDirect = ""
     @State private var localPort = "1819"
+    @State private var httpProxy = ""
+    @State private var dns = ""
+    @State private var logLevel = "info"
+    @State private var perfLevel = "auto"
+    @State private var teamName = ""
+    @State private var accessEmail = ""
+    @State private var enableGateway = false
+    @State private var wiwOuter = ""
+    @State private var wiwInner = ""
     @State private var terminalInput = ""
     
     let protocols = ["masque", "wireguard", "gool"]
     let httpVersions = ["http3", "http2"]
-    let scanModes = ["turbo", "balanced"]
+    let scanModes = ["turbo", "balanced", "ironclad"]
+    let noiseTypes = ["firewall", "light"]
+    let logLevels = ["error", "warn", "info", "debug", "trace"]
+    let perfLevels = ["auto", "low", "medium", "high"]
     
     var body: some View {
         HStack(spacing: 0) {
-            // پنل تنظیمات
             VStack {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 15) {
-                        Text("Aether Settings")
-                            .font(.title2)
-                            .fontWeight(.bold)
+                        HStack {
+                            Text("Aether Settings")
+                                .font(.title2)
+                                .fontWeight(.bold)
+                            Spacer()
+                            Text("v1.9.0")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
                         
                         GroupBox("Protocol & Scan") {
                             VStack(alignment: .leading, spacing: 10) {
@@ -196,16 +270,29 @@ struct ContentView: View {
                                         .textFieldStyle(RoundedBorderTextFieldStyle())
                                         .frame(width: 80)
                                 }
+                                
+                                HStack {
+                                    Text("HTTP Proxy:")
+                                    TextField("127.0.0.1:8080", text: $httpProxy)
+                                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                                }
+                                
+                                HStack {
+                                    Text("DNS:")
+                                    TextField("1.1.1.1,8.8.8.8", text: $dns)
+                                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                                }
                             }
                             .padding(5)
                         }
                         
-                        GroupBox("Advanced") {
+                        GroupBox("Obfuscation & Routing") {
                             VStack(alignment: .leading, spacing: 10) {
                                 Toggle("Obfuscation (Noise)", isOn: $enableNoise)
                                 if enableNoise {
-                                    TextField("Noise Type (e.g. firewall)", text: $noiseType)
-                                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                                    Picker("Noise Type:", selection: $noiseType) {
+                                        ForEach(noiseTypes, id: \.self) { Text($0.capitalized).tag($0) }
+                                    }
                                 }
                                 
                                 Text("Upstream Proxy:")
@@ -213,10 +300,65 @@ struct ContentView: View {
                                 TextField("socks5://...", text: $upstreamProxy)
                                     .textFieldStyle(RoundedBorderTextFieldStyle())
                                 
-                                Text("Routing:")
+                                Text("Route Block:")
                                     .font(.caption)
-                                TextField("iran:direct", text: $routingRules)
+                                TextField("domain:ads.example.com", text: $routeBlock)
                                     .textFieldStyle(RoundedBorderTextFieldStyle())
+                                
+                                Text("Route Direct:")
+                                    .font(.caption)
+                                TextField("iran:direct", text: $routeDirect)
+                                    .textFieldStyle(RoundedBorderTextFieldStyle())
+                            }
+                            .padding(5)
+                        }
+                        
+                        GroupBox("Zero Trust") {
+                            VStack(alignment: .leading, spacing: 10) {
+                                HStack {
+                                    Text("Team:")
+                                    TextField("org-name", text: $teamName)
+                                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                                }
+                                
+                                if !teamName.isEmpty {
+                                    HStack {
+                                        Text("Email:")
+                                        TextField("user@example.com", text: $accessEmail)
+                                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                                    }
+                                    Toggle("Gateway Proxy", isOn: $enableGateway)
+                                }
+                            }
+                            .padding(5)
+                        }
+                        
+                        if selectedProtocol == "gool" {
+                            GroupBox("WiW Peers") {
+                                VStack(alignment: .leading, spacing: 10) {
+                                    HStack {
+                                        Text("Outer:")
+                                        TextField("162.159.192.1:2408", text: $wiwOuter)
+                                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                                    }
+                                    HStack {
+                                        Text("Inner:")
+                                        TextField("188.114.96.1:2408", text: $wiwInner)
+                                            .textFieldStyle(RoundedBorderTextFieldStyle())
+                                    }
+                                }
+                                .padding(5)
+                            }
+                        }
+                        
+                        GroupBox("Diagnostics") {
+                            VStack(alignment: .leading, spacing: 10) {
+                                Picker("Log Level:", selection: $logLevel) {
+                                    ForEach(logLevels, id: \.self) { Text($0.capitalized).tag($0) }
+                                }
+                                Picker("Performance:", selection: $perfLevel) {
+                                    ForEach(perfLevels, id: \.self) { Text($0.capitalized).tag($0) }
+                                }
                             }
                             .padding(5)
                         }
@@ -236,8 +378,18 @@ struct ContentView: View {
                                     enableNoise: enableNoise,
                                     noiseType: noiseType,
                                     upstream: upstreamProxy,
-                                    routing: routingRules,
-                                    localPort: localPort
+                                    routeBlock: routeBlock,
+                                    routeDirect: routeDirect,
+                                    localPort: localPort,
+                                    httpProxy: httpProxy,
+                                    dns: dns,
+                                    logLevel: logLevel,
+                                    perfLevel: perfLevel,
+                                    teamName: teamName,
+                                    accessEmail: accessEmail,
+                                    enableGateway: enableGateway,
+                                    wiwOuter: wiwOuter,
+                                    wiwInner: wiwInner
                                 )
                             }
                         }) {
@@ -253,7 +405,6 @@ struct ContentView: View {
                     .padding()
                 }
                 
-                // بخش اطلاعات شما در پایین پنل تنظیمات
                 VStack(spacing: 5) {
                     Text("Developed by Aryan")
                         .font(.footnote)
@@ -276,7 +427,6 @@ struct ContentView: View {
             
             Divider()
             
-            // پنل لاگ‌ها
             VStack(alignment: .leading, spacing: 0) {
                 HStack {
                     Text("Terminal Logs (Proxy at 127.0.0.1:\(localPort.isEmpty ? "1819" : localPort))")
@@ -318,6 +468,6 @@ struct ContentView: View {
                 .background(Color(NSColor.windowBackgroundColor))
             }
         }
-        .frame(width: 900, height: 650)
+        .frame(width: 900, height: 700)
     }
 }
